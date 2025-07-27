@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ENIGMA // quebra-cabeças em fases</title>
+<style>
+  :root{
+    --bg: #0f0f12;
+    --fg: #e6e6ea;
+    --muted: #8a8a90;
+    --accent: #6c5ce7;
+    --danger: #ff4d4f;
+
+    /* shhh... a resposta da fase 5 está aqui 👀 */
+    --resposta-final: "kripto";
+  }
+  *{ box-sizing: border-box; }
+  body{
+    margin: 0; padding: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, sans-serif;
+    background: var(--bg); color: var(--fg); min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  }
+  main{
+    width: 100%; max-width: 760px; padding: 2rem; line-height: 1.6;
+  }
+  h1, h2, h3{
+    font-weight: 700; letter-spacing: .04em;
+  }
+  .card{
+    background: #15151a; border: 1px solid #1e1e24; border-radius: 16px; padding: 1.5rem 1.75rem; box-shadow: 0 0 0 1px #0003, 0 12px 32px #0005;
+  }
+  .muted{ color: var(--muted); font-size: .875rem; }
+  .row{ display: flex; gap: .75rem; align-items: center; }
+  input[type="text"]{
+    flex: 1; background: #1a1a21; border: 1px solid #2a2a33; color: var(--fg);
+    padding: .75rem 1rem; border-radius: 10px; font-size: 1rem; outline: none;
+  }
+  input[type="text"]::placeholder{ color: #666; }
+  button{
+    background: var(--accent); color: #fff; border: 0; padding: .75rem 1rem; border-radius: 10px; cursor: pointer; font-size: 1rem;
+    transition: transform .08s;
+  }
+  button:active{ transform: scale(.98); }
+  .danger{ background: var(--danger); }
+  .success{ color: #2ecc71; }
+  .error{ color: var(--danger); }
+  .progress{
+    height: 6px; background: #23232a; border-radius: 999px; overflow: hidden; margin: 1rem 0 1.25rem;
+  }
+  .progress > div{
+    height: 100%; background: var(--accent); width: 0%;
+  }
+  details{
+    margin-top: .75rem; background: #111114; border: 1px dashed #2a2a33; border-radius: 10px; padding: .75rem 1rem;
+  }
+  code{
+    background: #111114; padding: .15rem .35rem; border-radius: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  }
+  footer{
+    margin-top: 2rem; text-align: center; font-size: .8rem; color: #666;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>🧩 ENIGMA</h1>
+  <p class="muted">Resolva cada fase digitando a resposta exata. Sem acentos, tudo minúsculo.</p>
+
+  <div class="progress"><div id="bar"></div></div>
+
+  <div id="app" class="card">
+    <!-- conteúdo dinâmico -->
+  </div>
+
+  <footer>
+    feito com 💀 e JavaScript.<br/>
+    <span id="timer" class="muted"></span>
+  </footer>
+</main>
+
+<script>
+/**
+ * Config das fases
+ * - question: enigma exibido
+ * - answer: resposta correta (minúsculo)
+ * - hint: dica opcional
+ */
+const STAGES = [
+  {
+    id: 1,
+    question: "Quanto mais você tira, maior eu fico. O que sou?",
+    answer: "buraco",
+    hint: "Não é dívida. Pense em pá e terra."
+  },
+  {
+    id: 2,
+    question: "Tenho cidades, mas não casas; montanhas, mas não árvores; água, mas não peixes. O que sou?",
+    answer: "mapa",
+    hint: "Está quase sempre dobrado ou no celular."
+  },
+  {
+    id: 3,
+    question: "Sou o começo do fim e o fim do tempo e do espaço. Sou essencial para a criação e cercado por toda parte. O que sou?",
+    answer: "e",
+    hint: "Olhe para as palavras, não para o sentido."
+  },
+  {
+    id: 4,
+    question: "01101111 01101100 01100001",
+    answer: "ola",
+    hint: "ASCII em binário."
+  },
+  {
+    id: 5,
+    question: "A senha está escondida no próprio site. (Olhe melhor o CSS…) Qual é a palavra?",
+    // pegamos do CSS dinâmicamente para permitir mudar sem alterar o JS
+    answer: null,
+    hint: "Procure por uma variável CSS chamada --resposta-final."
+  }
+];
+
+const state = {
+  stageIndex: Number(localStorage.getItem("stageIndex") || 0),
+  startTime: Number(localStorage.getItem("startTime") || Date.now()),
+};
+
+if (!localStorage.getItem("startTime")) {
+  localStorage.setItem("startTime", state.startTime);
+}
+
+const app = document.getElementById("app");
+const bar = document.getElementById("bar");
+const timerEl = document.getElementById("timer");
+
+function getFinalAnswerFromCSS(){
+  const root = getComputedStyle(document.documentElement)
+    .getPropertyValue("--resposta-final");
+  // remove aspas eventuais
+  return root.replace(/["']/g, "").trim();
+}
+
+function render(){
+  const total = STAGES.length;
+  const current = STAGES[state.stageIndex];
+  const pct = ((state.stageIndex) / total) * 100;
+  bar.style.width = pct + "%";
+
+  if (!current){
+    // Fim!
+    bar.style.width = "100%";
+    app.innerHTML = `
+      <h2>🎉 Parabéns!</h2>
+      <p>Você concluiu todas as <strong>${total}</strong> fases.</p>
+      <p class="muted">Tempo total: <span id="final-time"></span></p>
+      <button id="reset" class="danger">Recomeçar</button>
+    `;
+    document.getElementById("reset").addEventListener("click", resetGame);
+    const diff = Date.now() - state.startTime;
+    document.getElementById("final-time").textContent = formatMs(diff);
+    return;
+  }
+
+  const number = state.stageIndex + 1;
+  const totalStr = String(total).padStart(2, "0");
+  const idStr = String(number).padStart(2, "0");
+
+  app.innerHTML = `
+    <h2>Fase ${idStr}/${totalStr}</h2>
+    <p>${current.question}</p>
+
+    <details>
+      <summary>Precisa de dica?</summary>
+      <p class="muted">${current.hint}</p>
+    </details>
+
+    <div class="row" style="margin-top: 1rem;">
+      <input id="answer" type="text" placeholder="sua resposta..." autocomplete="off"/>
+      <button id="send">Enviar</button>
+    </div>
+
+    <p id="feedback" class="muted" style="min-height:1.25rem;margin-top:.5rem;"></p>
+  `;
+
+  document.getElementById("send").addEventListener("click", check);
+  document.getElementById("answer").addEventListener("keydown", (e)=>{
+    if(e.key === "Enter") check();
+  });
+}
+
+function check(){
+  const current = STAGES[state.stageIndex];
+  const input = document.getElementById("answer");
+  const fb = document.getElementById("feedback");
+  let expected = (current.answer ?? getFinalAnswerFromCSS());
+  const got = (input.value || "").trim().toLowerCase();
+
+  if (got === expected){
+    fb.textContent = "✔ Correto!";
+    fb.className = "success";
+    state.stageIndex++;
+    localStorage.setItem("stageIndex", state.stageIndex);
+    setTimeout(render, 450);
+  } else {
+    fb.textContent = "✖ Errado. Tente outra vez.";
+    fb.className = "error";
+  }
+}
+
+function resetGame(){
+  localStorage.removeItem("stageIndex");
+  localStorage.removeItem("startTime");
+  state.stageIndex = 0;
+  state.startTime = Date.now();
+  localStorage.setItem("startTime", state.startTime);
+  render();
+}
+
+function tickTimer(){
+  const diff = Date.now() - state.startTime;
+  timerEl.textContent = "⏱ " + formatMs(diff);
+  requestAnimationFrame(tickTimer);
+}
+
+function formatMs(ms){
+  const s = Math.floor(ms/1000);
+  const h = Math.floor(s/3600);
+  const m = Math.floor((s%3600)/60);
+  const ss = s%60;
+  const pad = n => String(n).padStart(2,"0");
+  return `${pad(h)}:${pad(m)}:${pad(ss)}`;
+}
+
+render();
+tickTimer();
+</script>
+</body>
+</html>
